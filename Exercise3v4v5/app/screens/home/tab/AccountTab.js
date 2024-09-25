@@ -12,14 +12,13 @@ import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Octicons from "@expo/vector-icons/Octicons";
 import { StatusBar } from "expo-status-bar";
+import * as ImagePicker from "expo-image-picker";
 
 import { logout } from "../../../services/AuthAPIService";
 import { myInfo } from "../../../services/UsersAPIService";
+import { updateAvatar } from "../../../services/JobSeekerAPIService";
 
 import { getToken, deleteToken } from "../../../utils/AuthStorage";
-
-// Import hình ảnh từ thư mục cục bộ
-import profileImage from "../../../assets/img/cat.jpg";
 
 export default function AccountTab({ route, navigation }) {
     const [loading, setLoading] = useState(true);
@@ -50,10 +49,72 @@ export default function AccountTab({ route, navigation }) {
         }, [])
     );
 
+    const selectImage = async () => {
+        // Yêu cầu quyền truy cập thư viện ảnh
+        const { status } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (status !== "granted") {
+            Alert.alert(
+                "Quyền truy cập bị từ chối!",
+                "Bạn cần cấp quyền để chọn ảnh."
+            );
+            return;
+        }
+
+        // Mở thư viện ảnh
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true, // Cho phép chỉnh sửa hình ảnh
+            aspect: [1, 1], // Cắt ảnh theo tỷ lệ 1:1 (hình vuông)
+            quality: 1, // Chất lượng hình ảnh (từ 0 đến 1)
+        });
+
+        // Nếu người dùng không hủy chọn ảnh
+        if (!result.canceled) {
+            const selectedImage = result.assets[0];
+            const { uri } = selectedImage;
+            const fileName = uri.split("/").pop(); // Lấy tên tệp từ đường dẫn uri
+
+            const fileExtension = uri.split(".").pop().toLowerCase();
+            const type = `image/${fileExtension}`;
+
+            // Tạo đối tượng file
+            const avatar = {
+                uri,
+                type: type || "image/jpeg",
+                name: fileName,
+            };
+
+            try {
+                setLoading(true);
+                const token = await getToken();
+                if (token) {
+                    const data = await updateAvatar(token, avatar);
+                    if (data.success) {
+                        fetchUserInfo();
+                        Alert.alert("Success", data.message);
+                    } else {
+                        Alert.alert("Error", data.message);
+                    }
+                }
+            } catch (error) {
+                Alert.alert(
+                    "Logout failed",
+                    "An error occurred. Please try again."
+                );
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            Alert.alert("Đã hủy", "Bạn đã hủy chọn ảnh.");
+        }
+    };
+
     const handleLogout = async () => {
         Alert.alert(
             "Xác nhận đăng xuất",
-            "Bạn có chắc chắn muốn đăng xuất chứ?",
+            "Bạn có chắc chắn muốn đăng xuất?",
             [
                 {
                     text: "Hủy",
@@ -99,7 +160,7 @@ export default function AccountTab({ route, navigation }) {
                 }}
             >
                 <StatusBar style="auto" />
-                <ActivityIndicator size="large" color="#6dcf5b" />
+                <ActivityIndicator size="large" color="#16a34a" />
             </View>
         );
     }
@@ -118,13 +179,25 @@ export default function AccountTab({ route, navigation }) {
                         style={styles.shadowStyle}
                     >
                         <View className="relative">
-                            <Image
-                                source={profileImage}
-                                className="w-24 h-24 rounded-full border-2 border-[#6dcf5b]"
-                            />
+                            {userInfo.avatar ? (
+                                <Image
+                                    source={{
+                                        uri: userInfo.avatar,
+                                    }}
+                                    className="w-24 h-24 rounded-full border-2 border-[#6dcf5b]"
+                                />
+                            ) : (
+                                <View className="w-24 h-24 rounded-full border-2 border-[#509b43] justify-center items-center">
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={48}
+                                        color="#509b43"
+                                    />
+                                </View>
+                            )}
                             <TouchableOpacity
                                 className="absolute right-0 bottom-0 bg-gray-600 rounded-full p-1 border-2 border-white"
-                                // onPress={selectImage}
+                                onPress={selectImage}
                             >
                                 <Ionicons
                                     name="camera-outline"
@@ -235,16 +308,6 @@ export default function AccountTab({ route, navigation }) {
                                     color="#509b43"
                                 />
                             </View>
-                            <TouchableOpacity
-                                className="absolute right-0 bottom-0 bg-gray-600 rounded-full p-1 border-2 border-white"
-                                // onPress={selectImage}
-                            >
-                                <Ionicons
-                                    name="camera-outline"
-                                    size={20}
-                                    color="#fff"
-                                />
-                            </TouchableOpacity>
                         </View>
                         <View className="flex-1 justify-center">
                             <Text className="text-lg font-bold text-gray-800 mb-3 text-center">

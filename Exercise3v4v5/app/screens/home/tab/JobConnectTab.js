@@ -1,10 +1,10 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-export default function NotificationTab({ route, navigation }) {
+export default function JobConnectTab({ route, navigation }) {
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Job Connect</Text>
+            <Text style={styles.title}>Công việc</Text>
         </View>
     );
 }
